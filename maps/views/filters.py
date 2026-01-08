@@ -1,7 +1,7 @@
  #use django-filters to define get request behavior at endpoints
 
 import django_filters
-from ..models import Map
+from ..models import Map, Collection, Tag
 
 class MapFilter(django_filters.FilterSet):
     title=django_filters.CharFilter(
@@ -9,13 +9,13 @@ class MapFilter(django_filters.FilterSet):
         lookup_expr='icontains',
         label='Title contains'
     )
-    tags=django_filters.CharFilter(
+    tags=django_filters.ModelMultipleChoiceFilter(
         field_name='tags',
-        queryset=Map.objects.all(),
-        label='Tag'
+        queryset=Tag.objects.all(),
+        label='Tags'
     )
-    collection=django_filters.CharFilter(
+    collection=django_filters.ModelMultipleChoiceFilter(
         field_name='collection',
-        queryset=Map.objects.values_list('collection'),
+        queryset=Collection.objects.all(),
         label='Collection'
     )
