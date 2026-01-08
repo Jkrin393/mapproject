@@ -1,7 +1,10 @@
 from django.contrib import admin
 from .models import Map, Collection, Tag
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 # Register your models here. Allows for editing in the web UI
+
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display=['name','category']

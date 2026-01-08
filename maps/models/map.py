@@ -2,10 +2,21 @@
 from django.db import models
 
 class Map(models.Model):
-    title=models.CharField(max_length=200)
+    django_id=models.BigAutoField(primary_key=True)
+    external_map_id=models.IntegerField(
+        null=True,
+        blank=True,
+        unique=True
+    )
+    map_maker=models.CharField(max_length=200)
+    map_year=models.DateField(null=True, blank=True)
+    map_height=models.IntegerField(null=True)
+    map_width=models.IntegerField(null=True)
+    map_title=models.CharField(max_length=200)
     description=models.TextField(blank=True)
-    map_date=models.DateField(null=True, blank=True)
-    price=models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    map_price=models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    map_info_memo=models.CharField(max_length=200, blank=True)
+    planned_use=models.CharField(max_length=25)
 
     # Relationships to other models
     image=models.ImageField(upload_to='maps/')
@@ -23,7 +34,7 @@ class Map(models.Model):
     last_edit_date=models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.title
+        return self.map_title
 
 class Collection(models.Model):
     name=models.CharField(max_length=200)
@@ -34,17 +45,17 @@ class Collection(models.Model):
 
 class Tag(models.Model):
     TAG_CATEGORIES=[
-        ('rg','Region'),
+        ('area','Area'),
         ('era','Historical Era'),
-        ('lg','Language'),
-        ('style','Map Style'),#style could be Nautical Map, Topographical, Thematic(density/population), climate, etc
+        ('phys_loc','Physical storage location'),
+
     ]
 
     name=models.CharField(max_length=50)
     category=models.CharField(
         max_length=200,
         choices=TAG_CATEGORIES,
-        default="region"
+        default="area"
     )
 
     def __str__(self):
