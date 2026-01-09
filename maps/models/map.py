@@ -32,7 +32,7 @@ class Map(models.Model):
     planned_use=models.CharField(max_length=25, blank=True)
 
     # Relationships to other models
-    image=models.ImageField(upload_to='maps/')
+    image=models.ImageField(upload_to='maps/', blank=True)
     tags=models.ManyToManyField('Tag', blank=True, related_name='maps')
     collection=models.ForeignKey(  
         'Collection',
@@ -73,7 +73,15 @@ class Collection(models.Model):
 class Tag(models.Model):
     TAG_CATEGORIES = [
         ('region', 'Region'),
+        ('state', 'US State'),
+        ('country', 'Country'),
+        ('cont','Continent'),
+        ('city','City'),
+        ('river','River'),
+        ('content','Content'),
         ('era', 'Historical Era'),
+        ('type', 'Print Type'),#wood carving, framed, catalog, map
+        ('misc', 'Miscellaneous'),
     ]
     
     name = models.CharField(max_length=50)
