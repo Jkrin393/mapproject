@@ -41,9 +41,12 @@ INSTALLED_APPS = [
     'django_filters',
     'maps',
     'import_export',
+    'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',#allow front end CORS
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -52,6 +55,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173", #vite port
+]
+CORS_ALLOW_CREDENTIALS = True #turn off when launching production version
 
 ROOT_URLCONF = 'urls'
 
