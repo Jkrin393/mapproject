@@ -1,0 +1,43 @@
+/*styling for the full gallery and individual maps*/
+
+.mapGrid{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+
+.mapInstance{
+    border: 2px solid;
+    border-radius: 8px;
+    padding: 8px;
+    width: 220px;
+    text-align: center;
+    background-color: #fafafa;
+    transition: transform 0.2s ease;
+    box-shadow: 2px 2px 2px #000000 ;
+    
+}
+.mapInstance:hover{
+    transform: scale(1.05);
+}
+
+.mapImage {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.mapTitle {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 4px 0;
+  color: #000000
+}
+
+.mapDetails {
+  font-size: 0.9rem;
+  color: #555;
+}

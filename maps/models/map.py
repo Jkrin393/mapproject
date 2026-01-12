@@ -30,6 +30,7 @@ class Map(models.Model):
         )
     map_info_memo=models.CharField(max_length=200, blank=True)
     planned_use=models.CharField(max_length=25, blank=True)
+    physical_location=models.CharField(max_length=200, blank=True)
 
     # Relationships to other models
     image=models.ImageField(upload_to='maps/', blank=True)

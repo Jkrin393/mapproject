@@ -30,7 +30,7 @@ class MapResource(resources.ModelResource):
 
 
 @admin.register(Map)
-class MapAdmin(admin.ModelAdmin):
+class MapAdmin(ImportExportModelAdmin): ##changed from admin.ModelAdmin to allow batch upload
     resource_class=MapResource
     list_display=[
         'map_title',
