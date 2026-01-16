@@ -3,6 +3,8 @@ import re
 from django.core.management.base import BaseCommand
 from maps.models import Map, Tag
 
+from decimal import Decimal, InvalidOperation
+
 import us
 from rapidfuzz import process, fuzz #https://github.com/rapidfuzz/RapidFuzz/blob/main/README.md
 
@@ -21,8 +23,8 @@ TAG_MAPPING={ #typos i noticed from the source csv
 
 def normalize_tags(input_string):
     tag=input_string.strip().lower()
-    tag=input_string.replace("etc","")
-    tag=input_string.replace("/",",")
+    tag=tag.replace("etc","")
+    tag=tag.replace("/",",")
     tag=re.sub(r'\s+',' ',tag) #(pattern, replacement, string)
     
     tag=TAG_MAPPING.get(tag, tag) #replace with found match or return default
@@ -42,12 +44,31 @@ def match_us_state(input_state):
 #rapidfuzz matching
 FUZZ_RATIO=90
 def match_to_existing_tag(input_tag):
-    existing_tags_list=Tag.objects.values_list('name')
-    #process returns the estimated match and the associated score
-    guessed_tag_match,score=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    existing_tags_list=Tag.objects.values_list('name', flat=True)
+    #process returns the estimated match and the associated score. returns 3 with a list
+    ##guessed_tag_match,score=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    result=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    if result is None:
+        return None
+    guessed_tag_match,score,index=result[:2]
+
+    
     if score>=FUZZ_RATIO:
         return Tag.objects.get(name=guessed_tag_match)
     return None
+
+#guard against empty strings in height, width, price fields of the import
+def safe_integer_conversion(value):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+    
+def safe_decimal_conversion(value):
+    try:
+        return Decimal(value)
+    except(InvalidOperation,ValueError,TypeError):
+        return None 
 
 #Django mgmt commands have to follow the expected names. inheritence not flexible
 #https://dracodes.hashnode.dev/how-to-create-a-custom-managepy-command-in-django#
@@ -76,10 +97,10 @@ class Command(BaseCommand):
                         'map_title': read_map_title_from_csv,
                         'map_maker': row.get('MapMaker', ''),
                         'map_year': row.get('MapYear', None),
-                        'map_height': row.get('MapHeight', None),
-                        'map_width': row.get('MapWidth', None),
+                        'map_height': safe_integer_conversion(row.get('MapHeight', None)),
+                        'map_width': safe_integer_conversion(row.get('MapWidth', None)),
                         'description': row.get('description', ''),
-                        'map_price': row.get('MapPrice', None),
+                        'map_price': safe_decimal_conversion(row.get('MapPrice', None)),
                         'map_info_memo': row.get('MapInfoMemo', ''),
                         'planned_use': row.get('tag', ''),
                         'image': row.get('image', None),
@@ -90,18 +111,20 @@ class Command(BaseCommand):
                 #Maparea of CSV to rows in Tag Table
                 map_area_input_from_csv=row.get('MapArea','')
                 if map_area_input_from_csv:
-                    split_map_areas_from_csv=re.split(r',| and ', map_area_input_from_csv)
+                    split_map_areas_from_csv=[ t.strip() for t in re.split(r',| and ', map_area_input_from_csv)
+                        if t.strip()] ##removes empty string after a trailing comma in the case of "Mass.,Conn,"
+                    
                     cleaned_tags=[]
 
-                    for cleaned_tag in split_map_areas_from_csv:
-                        potential_tag_name=normalize_tags(cleaned_tag)
-                        full_state_name=match_us_state(cleaned_tag)
+                    for tag_fragment in split_map_areas_from_csv:
+                        potential_tag_name=normalize_tags(tag_fragment)
+                        full_state_name=match_us_state(tag_fragment)
                         if full_state_name:
                             potential_tag_name=full_state_name
                         existing_tag=match_to_existing_tag(potential_tag_name)
                         
                         if existing_tag:
-                            cleaned_tags.append(potential_tag_name)
+                            cleaned_tags.append(existing_tag)
                         else:
                             key=read_external_map_id_from_csv or read_map_title_from_csv
                             flagged_tags.setdefault(key, []).append(potential_tag_name)
@@ -115,6 +138,3 @@ class Command(BaseCommand):
                     line=f"{key}: {', '.join(tag)}"
                     self.stdout.write(line)
                     outfile.write(line + '\n')
-
-
-

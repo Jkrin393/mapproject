@@ -56,7 +56,7 @@ class Map(models.Model):
     def get_sort_year(self): #convert years stored as strings(to account for ranges, estimates, non-numeric charactesr) to integer for sorting  
         if not self.map_year:
             return None
-        matched_year = re.search(r'/d{4}', self.map_year)
+        matched_year = re.search(r'\d{4}', self.map_year)
         return int(matched_year.group()) if matched_year else None
     ##perhaps add more sorting regex functions to differenciate map_years that are estimates/ranges from specific years
 
