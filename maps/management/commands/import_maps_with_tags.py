@@ -44,20 +44,18 @@ def match_us_state(input_state):
 #rapidfuzz matching
 FUZZ_RATIO=90
 def match_to_existing_tag(input_tag):
-    existing_tags_list=Tag.objects.values_list('name', flat=True)
-    #process returns the estimated match and the associated score. returns 3 with a list
-    ##guessed_tag_match,score=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
-    result=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
-    if result is None:
+    existing_tags_list=Tag.objects.values_list('name', flat=True) #flat tag converts the population from tuples to strings
+    #extractOne() returns a tuple of size 3 (match, score, index). with the above flat flag match is a string
+    best_tag_match,score,_=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    #result=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    if best_tag_match is None:
         return None
-    guessed_tag_match,score,index=result[:2]
-
-    
+   
     if score>=FUZZ_RATIO:
-        return Tag.objects.get(name=guessed_tag_match)
+        return Tag.objects.get(name=best_tag_match)
     return None
 
-#guard against empty strings in height, width, price fields of the import
+#guard against empty or invalid inputs in height, width, price fields of the import by explicity casting
 def safe_integer_conversion(value):
     try:
         return int(value)
@@ -65,12 +63,14 @@ def safe_integer_conversion(value):
         return None
     
 def safe_decimal_conversion(value):
+    if value is None:
+        return None
+    value=str(value).replace('$','').replace(',','').strip() #add a replace for any non decimal values as they are encountered
     try:
         return Decimal(value)
     except(InvalidOperation,ValueError,TypeError):
         return None 
 
-#Django mgmt commands have to follow the expected names. inheritence not flexible
 #https://dracodes.hashnode.dev/how-to-create-a-custom-managepy-command-in-django#
 class Command(BaseCommand):
     help="import map data from raw csv, attempt to normalize region to match rows from Tags table"
@@ -84,7 +84,7 @@ class Command(BaseCommand):
         
     def handle(self, *args, **options):
         csv_file=options['csv_file']
-        flagged_tags={} #want to note new tags before adding to table
+        flagged_tags={} #want to list and note error tags and avoid adding those isntances
 
         with open(csv_file,newline='',encoding='utf-8') as file:
             reader=csv.DictReader(file)
@@ -108,7 +108,10 @@ class Command(BaseCommand):
                     }
                 )
 
-                #Maparea of CSV to rows in Tag Table
+                #The csv can have multiple entries in the MapArea column(which i am mapping to Tag.name). This line and down attempt
+                # 1) split the entries on commas and remove and edge case nonsense
+                # 2) clean the data with normalize_tags(), match any state abbreviations with match_us_state(), 
+                # and check if the tag exists with match_to_existing_tag() to either create the new tag or add the existing  tag the new Map entry
                 map_area_input_from_csv=row.get('MapArea','')
                 if map_area_input_from_csv:
                     split_map_areas_from_csv=[ t.strip() for t in re.split(r',| and ', map_area_input_from_csv)
