@@ -17,8 +17,8 @@ class Map(models.Model):
         blank=True,
         help_text="year the map depicts"
         )
-    map_height=models.IntegerField(null=True)
-    map_width=models.IntegerField(null=True)
+    map_height=models.DecimalField(max_digits=10,decimal_places=2,null=True)
+    map_width=models.DecimalField(max_digits=10, decimal_places=2,null=True)
     map_title=models.CharField(max_length=200)
     description=models.TextField(blank=True)
     map_price=models.DecimalField(

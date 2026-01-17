@@ -41,18 +41,31 @@ def match_us_state(input_state):
         return state_abbreviation.name
     return None
 
-#rapidfuzz matching
+
+#notes/reminders for rapidFuzz behavior
+##flat tag converts the population from tuples to strings
+#extractOne() returns a tuple of size 3 (match, score, index). with the above flat flag match is a string
+
+
 FUZZ_RATIO=90
 def match_to_existing_tag(input_tag):
-    existing_tags_list=Tag.objects.values_list('name', flat=True) #flat tag converts the population from tuples to strings
-    #extractOne() returns a tuple of size 3 (match, score, index). with the above flat flag match is a string
-    best_tag_match,score,_=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
-    #result=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    #some tags exist in two categories, for example Georgia is both a state and country. To get around this i create a list with similar/duplicated names and prioritize state.
+
+    existing_tags_list=list(Tag.objects.values_list('name', flat=True))
+    if not existing_tags_list:
+        return None
+    
+    result=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
+    if not result:
+        return None
+    best_tag_match,score,_=result
+
+    """best_tag_match,score,_=process.extractOne(input_tag,existing_tags_list,scorer=fuzz.ratio)
     if best_tag_match is None:
         return None
-   
+    """  
     if score>=FUZZ_RATIO:
-        return Tag.objects.get(name=best_tag_match)
+        return Tag.objects.filter(name=best_tag_match, category='state').first()
     return None
 
 #guard against empty or invalid inputs in height, width, price fields of the import by explicity casting
@@ -86,19 +99,23 @@ class Command(BaseCommand):
         csv_file=options['csv_file']
         flagged_tags={} #want to list and note error tags and avoid adding those isntances
 
+        imported_count=0
+        updated_count=0
+
         with open(csv_file,newline='',encoding='utf-8') as file:
             reader=csv.DictReader(file)
+
             for row in reader:
                 read_external_map_id_from_csv=row.get('Map ID','').strip()
                 read_map_title_from_csv=row.get('MapTitle','') or 'No Title'
-                map_object,success_bool=Map.objects.update_or_create(
+                map_object,created_flag=Map.objects.update_or_create(
                     external_map_id=read_external_map_id_from_csv,
                     defaults={
                         'map_title': read_map_title_from_csv,
                         'map_maker': row.get('MapMaker', ''),
                         'map_year': row.get('MapYear', None),
-                        'map_height': safe_integer_conversion(row.get('MapHeight', None)),
-                        'map_width': safe_integer_conversion(row.get('MapWidth', None)),
+                        'map_height': safe_decimal_conversion(row.get('MapHeight', None)),
+                        'map_width': safe_decimal_conversion(row.get('MapWidth', None)),
                         'description': row.get('description', ''),
                         'map_price': safe_decimal_conversion(row.get('MapPrice', None)),
                         'map_info_memo': row.get('MapInfoMemo', ''),
@@ -108,7 +125,12 @@ class Command(BaseCommand):
                     }
                 )
 
-                #The csv can have multiple entries in the MapArea column(which i am mapping to Tag.name). This line and down attempt
+                if created_flag:
+                    imported_count+=1
+                else:
+                    updated_count+=1
+
+                #The csv can have multiple entries in the MapArea column(which is mapping to Tag.name). Below we:
                 # 1) split the entries on commas and remove and edge case nonsense
                 # 2) clean the data with normalize_tags(), match any state abbreviations with match_us_state(), 
                 # and check if the tag exists with match_to_existing_tag() to either create the new tag or add the existing  tag the new Map entry
@@ -120,6 +142,11 @@ class Command(BaseCommand):
                     cleaned_tags=[]
 
                     for tag_fragment in split_map_areas_from_csv:
+                        if '(' in tag_fragment or ')' in tag_fragment:
+                            key=read_external_map_id_from_csv or read_map_title_from_csv
+                            flagged_tags.setdefault(key, []).append(f"{tag_fragment} (Parenthesis detected)")
+                            continue
+
                         potential_tag_name=normalize_tags(tag_fragment)
                         full_state_name=match_us_state(tag_fragment)
                         if full_state_name:
@@ -128,12 +155,16 @@ class Command(BaseCommand):
                         
                         if existing_tag:
                             cleaned_tags.append(existing_tag)
+                            map_object.tags.set(cleaned_tags)
                         else:
                             key=read_external_map_id_from_csv or read_map_title_from_csv
                             flagged_tags.setdefault(key, []).append(potential_tag_name)
                     
                     map_object.tags.set(cleaned_tags)
-        
+        self.stdout.write("------import complete-----")
+        self.stdout.write(f'created: {imported_count}')
+        self.stdout.write(f'updated: {updated_count}')
+
         if flagged_tags:
             self.stdout.write(self.style.WARNING('Potential Tags for review'))
             with open('flagged_tags.txt','w',encoding='utf-8') as outfile:
@@ -141,3 +172,5 @@ class Command(BaseCommand):
                     line=f"{key}: {', '.join(tag)}"
                     self.stdout.write(line)
                     outfile.write(line + '\n')
+                else:
+                    self.stdout.write("no entries flagged")
