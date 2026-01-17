@@ -1,3 +1,4 @@
+###map admin modules
 from django.contrib import admin
 from .models import Map, Collection, Tag
 from import_export import resources
@@ -29,6 +30,24 @@ class MapResource(resources.ModelResource):
         )
 
 
+class TagNameListFilter(admin.SimpleListFilter):
+    title='Tag Name'
+    parameter_name='tag_name'
+    
+    def lookups(self, request, model_admin):
+        tags=Tag.objects.all()
+        lookups_list=[(tag.id, tag.name) for tag in tags]
+        lookups_list.append(('no_tag', 'No Tag'))
+        return lookups_list
+
+    def queryset(self, request, queryset):
+       if(self.value())=='no_tag':
+           return queryset.filter(tags__isnull=True)
+       elif self.value():
+           return queryset.filter(tags_id=self.value())
+       return queryset
+
+
 @admin.register(Map)
 class MapAdmin(ImportExportModelAdmin): ##changed from admin.ModelAdmin to allow batch upload
     resource_class=MapResource
@@ -41,7 +60,7 @@ class MapAdmin(ImportExportModelAdmin): ##changed from admin.ModelAdmin to allow
         'tag_list',
         #year_is_estimated_or_range
     ]
-    list_filter=['collection', 'tags__category', 'planned_use']
+    list_filter=['collection', 'tags__category',TagNameListFilter]
     search_fields=['map_title', 'description', 'map_maker', 'map_year']
     filter_horizontal=['tags']
 
@@ -72,7 +91,7 @@ class MapAdmin(ImportExportModelAdmin): ##changed from admin.ModelAdmin to allow
     display_sorting_year.admin_order_field='map_year'
 
     def tag_list(self, obj):
-        return ", ".join([tag.name for tag in obj.tags.all()[:3]])
+        return ", ".join([tag.name for tag in obj.tags.all()])
     tag_list.short_description='Tags'
 
 @admin.register(Tag)
